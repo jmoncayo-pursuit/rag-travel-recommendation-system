@@ -4,7 +4,9 @@ const csvParser = require('csv-parser');
 async function loadAndProcessData() {
   const results = [];
 
-  fs.createReadStream('./data/mountains_vs_beaches_preferences.csv')
+  fs.createReadStream(
+    '../data/mountains_vs_beaches_preferences.csv'
+  )
     .pipe(csvParser())
     .on('data', (row) => {
       results.push(row);
