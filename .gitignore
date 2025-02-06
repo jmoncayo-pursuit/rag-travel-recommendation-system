@@ -1,0 +1,41 @@
+# Node.js and npm
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+*.env
+.env.*.local
+
+# PostgreSQL (if you have local database files you want to ignore - unlikely in this project setup, but good to include generally)
+*.sql
+*.backup
+
+# Build artifacts and logs
+build/
+dist/
+logs/
+*.log
+
+# Dependency directories (if any others like virtual environments)
+venv/
+env/
+
+# IDE specific files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# macOS system files
+.DS_Store
+._*
+
+# Temporary files
+tmp/
+temp/
