@@ -1,124 +1,126 @@
 // backend/load_data_full.js
-import 'dotenv/config'; // **Import dotenv**
-import fs from 'fs'; // **Import fs**
-import csvParser from 'csv-parser'; // **Import csv-parser**
-import pg from 'pg'; // **Import pg**
+import 'dotenv/config';
+import fs from 'fs';
+import csvParser from 'csv-parser';
+import pg from 'pg';
+import chalk from 'chalk'; // Import chalk for colors
+import * as emoticons from './emoticons.js'; // Import emoticons
+import winkNLP from 'wink-nlp';
+import winkEngLiteWebModel from 'wink-eng-lite-web-model';
 
-console.warn(
-  'WARNING: Running load_data_full.js will attempt to process the entire CSV dataset and store data in PostgreSQL.'
-);
-console.warn(
-  'This script now uses batched insertions for efficiency.'
-);
-console.warn(
-  'It does NOT generate or store embeddings in this version.'
-);
-console.warn(
-  '----------------------------------------------------------------------------------------------------'
-);
+// Instantiate winkNLP
+const nlp = winkNLP(winkEngLiteWebModel);
 
-// Global database configuration (moved outside function for consistency with load_data_sample.js)
+// Add embedding generation function
+function generateEmbedding(text) {
+    if (!text) {
+        return `[${new Array(384).fill(0).join(',')}]`;
+    }
+
+    try {
+        const hash = text.split('').reduce((h, c) => {
+            h = ((h << 5) - h) + c.charCodeAt(0);
+            return h & h;
+        }, 0);
+
+        let embeddingVector = new Array(384).fill(0);
+        for (let i = 0; i < 384; i++) {
+            embeddingVector[i] = Math.sin(hash * (i + 1) * 0.01);
+        }
+
+        return `[${embeddingVector.join(',')}]`;
+    } catch (error) {
+        return `[${new Array(384).fill(0).join(',')}]`;
+    }
+}
+
+console.warn(chalk.yellow.bold(emoticons.WARNING_EMOJI + "WARNING: Running load_data_full.js will attempt to process the entire CSV dataset."));
+console.warn(chalk.yellow(emoticons.WARNING_EMOJI + "This script uses batched insertions for efficiency."));
+
+// PostgreSQL connection setup
 const dbConfig = {
-  user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'travel_recommendation_db',
-  password: process.env.DB_PASSWORD || 'password',
   port: process.env.DB_PORT || 5432,
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'password',
+  database: process.env.DB_NAME || 'travel_recommendation_db',
+  connectionTimeoutMillis: 30000,
+  idleTimeoutMillis: 60000,
 };
 
 async function loadAndProcessFullData() {
-  // Function name remains loadAndProcessFullData
-  const results = [];
-  console.log(
-    'Proceeding with FULL data loading and storing to PostgreSQL (batched insertions, no embeddings)...'
-  );
+    const batchSize = 100;
+    let batch = [];
+    const dbClient = new pg.Client(dbConfig);
 
-  const batchSize = 100; // Batch size for database insertions
-  let batch = [];
-  let processedCount = 0;
+    try {
+        await dbClient.connect();
+        console.log(chalk.cyan.bold(emoticons.ROCKET_EMOJI + ' Loading dataset...'));
 
-  const dbClient = new pg.Client(dbConfig); // Create dbClient instance here
+        const stream = fs.createReadStream('../data/mountains_vs_beaches_preferences.csv')
+            .pipe(csvParser());
 
-  try {
-    await dbClient.connect();
-    console.log('Successfully connected to PostgreSQL database.');
+        for await (const row of stream) {
+            const embeddingVector = generateEmbedding(row.Preferred_Activities || '');
+            batch.push({
+                values: [
+                    parseInt(row.Age) || 0,
+                    row.Gender || '',
+                    parseInt(row.Income) || 0,
+                    row.Education_Level || '',
+                    parseInt(row.Travel_Frequency) || 0,
+                    row.Preferred_Activities || '',
+                    parseInt(row.Vacation_Budget) || 0,
+                    row.Location || '',
+                    parseInt(row.Proximity_to_Mountains) || 0,
+                    parseInt(row.Proximity_to_Beaches) || 0,
+                    row.Favorite_Season || '',
+                    parseInt(row.Pets) || 0,
+                    parseInt(row.Environmental_Concerns) || 0,
+                    parseInt(row.Preference) || 0,
+                    embeddingVector
+                ]
+            });
 
-    const stream = fs
-      .createReadStream(
-        '../data/mountains_vs_beaches_preferences.csv'
-      )
-      .pipe(csvParser());
+            if (batch.length >= batchSize) {
+                await processBatch(dbClient, batch);
+                batch = [];
+            }
+        }
 
-    for await (const row of stream) {
-      batch.push([
-        // Values array for batch insert
-        parseInt(row.Age),
-        row.Gender,
-        parseInt(row.Income),
-        row.Education_Level,
-        parseInt(row.Travel_Frequency),
-        row.Preferred_Activities,
-        parseInt(row.Vacation_Budget),
-        row.Location,
-        parseInt(row.Proximity_to_Mountains),
-        parseInt(row.Proximity_to_Beaches),
-        row.Favorite_Season,
-        parseInt(row.Pets),
-        parseInt(row.Environmental_Concerns),
-        parseInt(row.Preference),
-      ]);
+        if (batch.length > 0) {
+            await processBatch(dbClient, batch);
+        }
 
-      if (batch.length >= batchSize) {
-        await insertBatch(dbClient, batch); // Call insertBatch function
-        processedCount += batch.length;
-        // console.log(`Processed ${processedCount} rows (batched).`);
-        batch = []; // Clear the batch after insertion
-      }
+        // Add preview table at end
+        const previewResult = await dbClient.query(`
+            SELECT id, preferred_activities, format_embedding(embedding) as embedding_preview 
+            FROM travel_profiles 
+            WHERE id <= 5
+            ORDER BY id
+        `);
+
+        console.log(chalk.green(emoticons.SUCCESS_EMOJI + ' Processing completed.'));
+        console.table(previewResult.rows);
+
+    } catch (error) {
+        console.error(chalk.red(emoticons.ERROR_EMOJI + ' Error:'), error);
+    } finally {
+        await dbClient.end();
     }
-
-    if (batch.length > 0) {
-      // Insert any remaining rows in the final batch
-      await insertBatch(dbClient, batch);
-      processedCount += batch.length;
-    }
-
-    console.log(
-      'Full CSV processing and database insertion complete (batched, no embeddings).'
-    );
-    console.log(
-      `Processed and inserted ${processedCount} rows (full dataset - no embeddings).`
-    );
-    // You can inspect 'results' array (sample data with IDs from database).
-    console.log('Database connection closed.');
-  } catch (connectionError) {
-    console.error('Database connection failed:', connectionError);
-  } finally {
-    await dbClient.end(); // Ensure database connection is closed in finally block
-  }
 }
 
-async function insertBatch(dbClient, batch) {
-  // Reusable insertBatch function
+async function processBatch(client, batch) {
   const query = `
-        INSERT INTO travel_profiles (
-            age, gender, income, education_level, travel_frequency,
-            preferred_activities, vacation_budget, location,
-            proximity_to_mountains, proximity_to_beaches,
-            favorite_season, pets, environmental_concerns, preference
-        ) VALUES ${batch
-          .map(
-            (_, i) =>
-              `($${i * 14 + 1}, $${i * 14 + 2}, $${i * 14 + 3}, $${
-                i * 14 + 4
-              }, $${i * 14 + 5}, $${i * 14 + 6}, $${i * 14 + 7}, $${
-                i * 14 + 8
-              }, $${i * 14 + 9}, $${i * 14 + 10}, $${i * 14 + 11}, $${
-                i * 14 + 12
-              }, $${i * 14 + 13}, $${i * 14 + 14})`
-          )
-          .join(',')}
-    `;
-  await dbClient.query(query, batch.flat());
+    INSERT INTO travel_profiles (
+      age, gender, income, education_level, travel_frequency,
+      preferred_activities, vacation_budget, location, proximity_to_mountains,
+      proximity_to_beaches, favorite_season, pets, environmental_concerns, preference,
+      embedding
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+  `;
+
+  await Promise.all(batch.map(item => client.query(query, item.values)));
 }
 
-loadAndProcessFullData(); // Call the full data function
+loadAndProcessFullData();

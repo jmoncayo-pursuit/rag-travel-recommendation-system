@@ -8,13 +8,15 @@
     "dev": "nodemon dev.js",
     "load:sample": "node load_data_sample.js",
     "load:full": "node load_data_full.js",
-    "db:create-table": "psql -h localhost -p 5432 -U postgres -d travel_recommendation_db -W -f create_travel_profiles_table.sql"
+    "db:create-table": "psql -h localhost -p 5432 -U postgres -d travel_recommendation_db -f create_travel_profiles_table.sql",
+    "setup:db": "chmod +x ./scripts/setup_db.sh && ./scripts/setup_db.sh"
   },
+  
   "keywords": [],
   "author": "Jean Moncayo",
   "license": "ISC",
   "dependencies": {
-    "@themaximalist/vectordb.js": "^0.1.2",
+    "chalk": "^5.4.1",
     "csv-parser": "^3.2.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
