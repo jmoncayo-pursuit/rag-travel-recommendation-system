@@ -1,56 +1,79 @@
 import 'dotenv/config';
 import fs from 'fs';
 import csvParser from 'csv-parser';
+import pg from 'pg';
 
-async function loadAndProcessSampleData() {
-  const results = [];
-  console.log(
-    'Proceeding with sample data loading (without embedding generation yet - using robust stream control)...'
-  );
+// Global database configuration
+const dbConfig = {
+  user: process.env.DB_USER || 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'travel_recommendation_db',
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT || 5432,
+};
 
-  let processedRowCount = 0;
-  const readableStream = fs.createReadStream(
-    '../data/mountains_vs_beaches_preferences.csv'
-  );
-  const csvParserStream = readableStream.pipe(csvParser()); // Capture stream
-
-  csvParserStream
-    .on('data', (row) => {
-      if (processedRowCount >= 20) {
-        console.log(
-          'Reached sample row limit (20) for this run. Stopping CSV processing.'
-        );
-        csvParserStream.unpipe(readableStream); // Unpipe to stop data flow
-        readableStream.unpipe(csvParserStream); // Ensure both directions are unpiped
-        csvParserStream.pause(); // Pause the parser as well (precautionary)
-        readableStream.pause(); // Pause the readable stream too
-        return false; // **Return false to signal pause to csv-parser**
-      }
-
-      const textToEmbed = row['Preferred_Activities'];
-      if (textToEmbed) {
-        results.push(row);
-        console.log(
-          `Processing activities: "${textToEmbed.substring(
-            0,
-            50
-          )}..."`
-        );
-      } else {
-        console.warn(
-          'Skipping row due to empty Preferred_Activities field.'
-        );
-      }
-      processedRowCount++;
-    })
-    .on('end', () => {
-      console.log('Sample CSV processing complete.');
-      console.log(`Processed ${results.length} rows (sample).`);
-      // You can inspect 'results' (sample data - without embeddings for now).
-    })
-    .on('error', (error) => {
-      console.error('Error reading CSV file:', error);
+function generateEmbedding(text) {
+    const hash = text.split('').reduce((acc, char) => {
+        return ((acc << 5) - acc) + char.charCodeAt(0) | 0;
+    }, 0);
+    
+    const values = new Array(384).fill(0).map((_, i) => {
+        const value = Math.sin(hash + i) * 0.5;
+        return Number(value.toFixed(6));
     });
+    
+    // Format vector string for pgvector
+    return `[${values.join(',')}]`;
 }
 
-loadAndProcessSampleData();
+async function loadAndProcessSampleData() {
+    const client = new pg.Client(dbConfig);
+
+    try {
+        await client.connect();
+        console.log('Connected to database');
+
+        // Verify pgvector extension
+        await client.query('CREATE EXTENSION IF NOT EXISTS vector;');
+        
+        const testText = 'skiing';
+        const embedding = generateEmbedding(testText);
+        
+        // Debug log
+        console.log('Embedding format:', embedding.substring(0, 50) + '...');
+
+        const insertQuery = `
+            INSERT INTO travel_profiles (
+                preferred_activities,
+                embedding
+            ) VALUES ($1, $2)
+            RETURNING id, preferred_activities, vector_dims(embedding) as dims;
+        `;
+
+        const result = await client.query(insertQuery, [testText, embedding]);
+        console.log('Insertion result:', result.rows[0]);
+
+        // Verify with simple query
+        const verifyQuery = `
+            SELECT id, 
+                   preferred_activities, 
+                   vector_dims(embedding) as dims
+            FROM travel_profiles
+            WHERE id = $1;
+        `;
+
+        const verification = await client.query(verifyQuery, [result.rows[0].id]);
+        console.log('Verification:', verification.rows[0]);
+
+    } catch (error) {
+        console.error('Error details:', {
+            message: error.message,
+            detail: error.detail,
+            hint: error.hint
+        });
+    } finally {
+        await client.end();
+    }
+}
+
+loadAndProcessSampleData().catch(console.error);

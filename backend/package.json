@@ -14,11 +14,14 @@
   "author": "Jean Moncayo",
   "license": "ISC",
   "dependencies": {
+    "@themaximalist/vectordb.js": "^0.1.2",
     "csv-parser": "^3.2.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "node-fetch": "^3.3.2",
     "pg": "^8.13.1",
-    "pgvector": "^0.2.0"
+    "pgvector": "^0.2.0",
+    "wink-eng-lite-web-model": "^1.8.1",
+    "wink-nlp": "^2.3.2"
   }
 }
