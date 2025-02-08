@@ -32,20 +32,35 @@ This project is a travel recommendation system built using the PERN stack (Postg
         -   Insert data (either a sample or the full dataset) into the `travel_profiles` table.
         -   Include robust error handling and detailed logging (using `chalk` and emoticons).
         -   Provide a preview of inserted data and embeddings.
+        34
 - **Phase 1.5: Improved Logging and Embedding Preview - COMPLETE**
     - Implemented `format_embedding` SQL function for a concise embedding preview.
     - Enhanced logging with colors and emoticons for better readability.
     - Added a preview table after data loading to show the first 5 rows, including formatted embeddings.
--   **Phase 2:  Backend API Development (In Progress)**
-    -   Basic Express.js server setup.
-    -   [Next: Implement API endpoints for querying and retrieving recommendations.]
 
-- **Phase 3:  Frontend Development (Planned)**
-    - Develop a React.js frontend using Vite and Tailwind CSS.
-    - [Future: Implement user interface for inputting preferences and displaying recommendations.]
+- **Phase 2: Backend API Development - COMPLETE**
+  - Basic Express.js server setup
+  - Implemented recommendations endpoint with vector similarity search
+  - Added CORS support for frontend integration
+  - Enhanced error handling and logging
+
+- **Phase 3: Frontend Development - COMPLETE**
+  - Implemented React.js frontend using Vite and Tailwind CSS
+  - Created accessible dark mode UI with form validation
+  - Added loading states and error handling
+  - Implemented responsive recommendation cards
+  - Added keyboard navigation support
 
 -  **(Future) Phase 4:  RAG Integration**
     -   Integrate a Large Language Model (LLM) for more sophisticated, context-aware recommendations.
+
+## Frontend Features
+
+- **Dark Mode UI:** Clean, modern interface optimized for reduced eye strain
+- **Accessibility:** Full keyboard navigation, ARIA labels, and screen reader support
+- **Responsive Design:** Optimized for mobile, tablet, and desktop views
+- **Real-time Feedback:** Loading states and error messages
+- **Match Scoring:** Visual representation of recommendation relevance
 
 ## Setup Instructions
 
@@ -122,9 +137,12 @@ This project is a travel recommendation system built using the PERN stack (Postg
       This starts a basic Express server (defined in `index.js`). It doesn't have any API endpoints yet, but it confirms that the server can start. You should see a message like:
        `Backend server listening on port 3001`
 
-5.  **Frontend Setup (Future):**
-
-    -   [Instructions will be added here once frontend development begins.]
+4.  **Frontend Setup:**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+```
 
 ## Scripts
 

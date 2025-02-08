@@ -12,24 +12,34 @@ import winkEngLiteWebModel from 'wink-eng-lite-web-model';
 const nlp = winkNLP(winkEngLiteWebModel);
 
 // Add embedding generation function
-function generateEmbedding(text) {
+export function generateEmbedding(text) {
     if (!text) {
         return `[${new Array(384).fill(0).join(',')}]`;
     }
 
     try {
-        const hash = text.split('').reduce((h, c) => {
-            h = ((h << 5) - h) + c.charCodeAt(0);
-            return h & h;
-        }, 0);
-
+        // Generate slightly different vectors even for similar texts
+        const words = text.toLowerCase().split(/\W+/);
         let embeddingVector = new Array(384).fill(0);
-        for (let i = 0; i < 384; i++) {
-            embeddingVector[i] = Math.sin(hash * (i + 1) * 0.01);
-        }
+        
+        words.forEach((word, wordIndex) => {
+            const hash = word.split('').reduce((h, c) => {
+                h = ((h << 5) - h) + c.charCodeAt(0);
+                return h & h;
+            }, 0);
+
+            for (let i = 0; i < 384; i++) {
+                embeddingVector[i] += Math.sin(hash * (i + 1) * 0.01 + wordIndex * 0.1);
+            }
+        });
+
+        // Normalize the vector
+        const magnitude = Math.sqrt(embeddingVector.reduce((sum, val) => sum + val * val, 0));
+        embeddingVector = embeddingVector.map(val => val / (magnitude || 1));
 
         return `[${embeddingVector.join(',')}]`;
     } catch (error) {
+        console.error('Error generating embedding:', error);
         return `[${new Array(384).fill(0).join(',')}]`;
     }
 }
