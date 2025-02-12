@@ -1,3 +1,4 @@
+// backend/db/index.js
 import pg from 'pg';
 import chalk from 'chalk';
 import * as emoticons from '../emoticons.js';
@@ -14,20 +15,19 @@ const dbConfig = {
 
 const dbClient = new pg.Client(dbConfig);
 
+// Only log critical errors
+dbClient.on('error', (err) => {
+  console.error(chalk.red('Database error:'), err.message);
+});
+
 export async function connectToDatabase() {
   try {
     await dbClient.connect();
-    console.log(
-      chalk.cyan.bold(
-        emoticons.ROCKET_EMOJI + ' Connected to the database'
-      )
-    );
+    console.log(chalk.green('Database connected'));
   } catch (error) {
     console.error(
-      chalk.red(
-        emoticons.ERROR_EMOJI + ' Database connection error:'
-      ),
-      error
+      chalk.red('Database connection failed:'),
+      error.message
     );
     throw error;
   }

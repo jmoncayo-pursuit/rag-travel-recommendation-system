@@ -71,6 +71,20 @@ button:focus-visible {
   }
 }
 
+@media (prefers-contrast: high) {
+  :root {
+    color: #000000;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #0000ff;
+  }
+  button {
+    background-color: #ffffff;
+    color: #000000;
+  }
+}
+
 @layer base {
   :focus-visible {
     @apply outline-none ring-2 ring-offset-2 ring-indigo-500 ring-offset-gray-900;
